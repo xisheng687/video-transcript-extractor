@@ -2,21 +2,86 @@
 
 中文 | [English](./README.en.md)
 
-一个本地优先的视频链接转文字稿工具。输入视频链接或本地媒体文件，它会提取音频、调用 AI 转写，再生成更适合阅读和整理的 Markdown / TXT 文字稿。
+一个本地优先的在线视频/社媒内容转文字稿工具。输入一个视频链接或本地媒体文件，它会提取音频、调用 AI 语音转文字，再生成更适合阅读和整理的 Markdown / TXT 文字稿。
+
+它的底层平台解析能力来自 [`yt-dlp`](https://github.com/yt-dlp/yt-dlp)。当前 `yt-dlp` 本地版本包含 1800+ 个 extractor；只要 `yt-dlp` 对某个平台支持得更好，这个工具的可用范围也会跟着变强。
 
 ## 支持平台
 
-平台解析主要依赖 [`yt-dlp`](https://github.com/yt-dlp/yt-dlp)，因此理论上支持 `yt-dlp` 已覆盖的大量视频网站。这个工具主要面向这些常见平台：
+平台解析主要依赖 [`yt-dlp` 官方支持列表](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)。官方也说明，网站经常变化，并非列表里的每个站点都永久保证可用；最可靠的判断方式是实际跑一次。
 
-- YouTube
+常见可用平台包括但不限于：
+
+**中文与亚洲平台**
+
 - Bilibili / 哔哩哔哩
 - Douyin / 抖音
 - Xiaohongshu / 小红书
-- TikTok
-- 其他 `yt-dlp` 支持的视频链接
-- 本地视频或音频文件
+- AcFun
+- Weibo / 微博
+- Youku / 优酷
+- iQiyi / 爱奇艺
+- Viu
+- Niconico
+- AbemaTV
+- TVer
+- NHK
 
-不同平台的稳定性取决于 `yt-dlp`、登录状态、地区限制和平台风控。有些链接可能需要你自己导出的本地 `cookies.txt`。
+**全球视频与直播平台**
+
+- YouTube / YouTube Shorts / YouTube Live / YouTube playlists
+- TikTok
+- Instagram / Reels / Stories
+- Facebook / Facebook Reels
+- Twitter / X / Spaces
+- Vimeo
+- Dailymotion
+- Twitch
+- Rumble
+- PeerTube
+- BitChute
+- LBRY / Odysee
+
+**社媒与社区内容**
+
+- Reddit
+- Bluesky
+- Pinterest
+- LinkedIn
+- VK
+- Telegram embeds
+
+**音频、播客与音乐内容**
+
+- SoundCloud
+- Apple Podcasts
+- Ximalaya / 喜马拉雅
+- NetEase Cloud Music / 网易云音乐
+- QQ Music / QQ 音乐
+- Bandcamp
+- Mixcloud
+- Audiomack
+
+**新闻、教育与媒体站点**
+
+- BBC
+- CNN
+- Bloomberg
+- NPR
+- CCTV
+- ABC
+- NBC
+- Fox News
+- TED
+- Khan Academy
+- Udemy
+- ARD
+- ZDF
+- Arte
+
+此外，也支持本地视频或音频文件。
+
+不同平台的稳定性取决于 `yt-dlp`、登录状态、地区限制和平台风控。有些链接可能需要你自己导出的本地 `cookies.txt`。如果 `yt-dlp` 未来新增或修复了某个平台，这个工具通常也能直接受益。
 
 ## 核心作用
 

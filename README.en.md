@@ -2,21 +2,86 @@
 
 [中文](./README.md) | English
 
-A local-first tool for turning video links into readable transcripts. Give it a video URL or a local media file, and it will extract audio, transcribe it with AI, and write Markdown / TXT transcript files.
+A local-first tool for turning online video and social media content into readable transcripts. Give it a video URL or a local media file, and it will extract audio, transcribe it with AI, and write Markdown / TXT transcript files.
+
+The platform extraction layer is powered by [`yt-dlp`](https://github.com/yt-dlp/yt-dlp). The current local `yt-dlp` build includes 1800+ extractors; whenever `yt-dlp` gets stronger for a platform, this tool benefits from that improvement.
 
 ## Supported Platforms
 
-Platform extraction is powered by [`yt-dlp`](https://github.com/yt-dlp/yt-dlp), so this tool can work with many sites supported by `yt-dlp`. The main target platforms are:
+Platform extraction mainly relies on the official [`yt-dlp` supported sites list](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md). The yt-dlp project also notes that websites change constantly, so not every listed extractor is guaranteed to work forever. The most reliable check is to try the URL.
 
-- YouTube
+Commonly supported platforms include, but are not limited to:
+
+**Chinese and Asian platforms**
+
 - Bilibili
 - Douyin
 - Xiaohongshu / RedNote
-- TikTok
-- Other video URLs supported by `yt-dlp`
-- Local video or audio files
+- AcFun
+- Weibo
+- Youku
+- iQiyi
+- Viu
+- Niconico
+- AbemaTV
+- TVer
+- NHK
 
-Actual reliability depends on `yt-dlp`, login state, regional availability, and each platform's anti-bot behavior. Some links may require a local `cookies.txt` exported by the user.
+**Global video and livestream platforms**
+
+- YouTube / YouTube Shorts / YouTube Live / YouTube playlists
+- TikTok
+- Instagram / Reels / Stories
+- Facebook / Facebook Reels
+- Twitter / X / Spaces
+- Vimeo
+- Dailymotion
+- Twitch
+- Rumble
+- PeerTube
+- BitChute
+- LBRY / Odysee
+
+**Social and community content**
+
+- Reddit
+- Bluesky
+- Pinterest
+- LinkedIn
+- VK
+- Telegram embeds
+
+**Audio, podcast, and music content**
+
+- SoundCloud
+- Apple Podcasts
+- Ximalaya
+- NetEase Cloud Music
+- QQ Music
+- Bandcamp
+- Mixcloud
+- Audiomack
+
+**News, education, and media sites**
+
+- BBC
+- CNN
+- Bloomberg
+- NPR
+- CCTV
+- ABC
+- NBC
+- Fox News
+- TED
+- Khan Academy
+- Udemy
+- ARD
+- ZDF
+- Arte
+
+Local video or audio files are also supported.
+
+Actual reliability depends on `yt-dlp`, login state, regional availability, and each platform's anti-bot behavior. Some links may require a local `cookies.txt` exported by the user. If `yt-dlp` adds or fixes support for a platform, this tool usually benefits automatically.
 
 ## Core Purpose
 
