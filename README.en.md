@@ -2,99 +2,86 @@
 
 [中文](./README.md) | English
 
-A small, local-first bridge that turns video links into clean transcripts.
+A local-first tool for turning video links into readable transcripts. Give it a video URL or a local media file, and it will extract audio, transcribe it with AI, and write Markdown / TXT transcript files.
 
-This project is intentionally modest. There is very little original technical
-novelty here: it mainly connects existing tools into one repeatable workflow. It
-is not a new downloader, a new speech model, or a clever bypass. The core work
-is done by excellent existing tools:
+## Supported Platforms
 
-- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) for extracting metadata, subtitles,
-  and audio from video platforms.
-- [`ffmpeg`](https://ffmpeg.org/) for reliable audio conversion.
-- Google Gemini API for audio transcription and light transcript cleanup.
+Platform extraction is powered by [`yt-dlp`](https://github.com/yt-dlp/yt-dlp), so this tool can work with many sites supported by `yt-dlp`. The main target platforms are:
 
-What this repo adds is a practical workflow around those pieces: video URL in,
-clean Markdown transcript out, with a cost estimate and a Codex/agent-friendly
-Skill wrapper.
+- YouTube
+- Bilibili
+- Douyin
+- Xiaohongshu / RedNote
+- TikTok
+- Other video URLs supported by `yt-dlp`
+- Local video or audio files
 
-## What It Does
+Actual reliability depends on `yt-dlp`, login state, regional availability, and each platform's anti-bot behavior. Some links may require a local `cookies.txt` exported by the user.
 
-- Accepts a video URL or local media/audio file.
-- Uses `yt-dlp` to extract audio.
-- Converts audio to 64 kbps mono MP3 with `ffmpeg`.
-- Transcribes audio with `gemini-2.5-flash`.
-- Lightly corrects obvious ASR errors with `gemini-2.5-flash-lite`.
-- Outputs Markdown, TXT, raw transcript, and JSON metadata with token usage and
-  estimated cost.
+## Core Purpose
 
-It is designed for personal research, accessibility, knowledge management, and
-creator workflows. It is not intended for bypassing paywalls, DRM, private
-content, or platform restrictions.
+- Extract audio from video links or local files.
+- Convert audio to 64 kbps mono MP3 with `ffmpeg`.
+- Transcribe audio with `gemini-2.5-flash`.
+- Lightly correct obvious ASR errors with `gemini-2.5-flash-lite`.
+- Output Markdown, TXT, raw transcript, and JSON metadata.
+- Record token usage, estimated cost, elapsed time, and selected models.
 
-## Why This Exists
+It is designed for personal research, accessibility, knowledge management, and creator workflows. It is not intended for bypassing paywalls, DRM, private content, or platform restrictions.
 
-Many tools can download media. Many models can transcribe audio. The annoying
-part is wiring them together in a repeatable, Chinese-friendly workflow that:
+## Development Notes
 
-- Works across common platforms handled by `yt-dlp`, such as YouTube, Bilibili,
-  Douyin, Xiaohongshu, TikTok, and many more.
-- Handles videos without official subtitles by falling back to audio ASR.
-- Gives a readable transcript instead of a raw line-by-line dump.
-- Keeps API keys and cookies local.
-- Shows approximate cost.
+This is a simple wrapper, not a new downloader or a new speech recognition model. It connects mature tools into one local workflow:
 
-## API Recommendation
+```text
+video URL/local file -> yt-dlp audio extraction -> ffmpeg conversion -> Gemini transcription -> Gemini light cleanup -> transcript output
+```
 
-In our own test on a 13:52 Chinese tech video, the best cost-quality default was:
+In our own tests on Chinese tech videos, this default model combination had a good cost-quality balance:
 
 - Transcription: `gemini-2.5-flash`
 - Cleanup: `gemini-2.5-flash-lite`
 
-Observed cost for the full workflow was about `$0.038`, roughly `¥0.27` at
-`7.2 CNY/USD`. Your cost will vary with duration, audio density, model pricing,
-and exchange rate.
+For one 13:52 Chinese video, the full workflow cost about `$0.038`, roughly `¥0.27` at `7.2 CNY/USD`. Actual cost varies with duration, speech density, model pricing, and exchange rate.
 
-You can swap models or providers in the script. OpenAI transcription models may
-also work well, but in our test environment Gemini direct API was cheaper and
-more reliable than routing audio through OpenRouter.
+There are still many limitations. There is no GUI, no built-in batch job manager, and timestamped subtitle output is still basic. Future improvements may include better SRT/VTT output, subtitle-first handling, batch processing, caching, retries, and more model backends.
 
-## Requirements
+## Installation
+
+Requirements:
 
 - Python 3.9+
 - [`ffmpeg`](https://ffmpeg.org/)
-- `yt-dlp`, or [`uv`](https://github.com/astral-sh/uv) so the script can run
-  `uvx yt-dlp`
+- `yt-dlp`, or [`uv`](https://github.com/astral-sh/uv) so the script can run `uvx yt-dlp`
 - A Google Gemini API key
 
-Optional:
+Clone the repo:
 
-- `opencc-python-reimplemented` for traditional-to-simplified Chinese cleanup.
+```bash
+git clone https://github.com/xisheng687/video-transcript-extractor.git
+cd video-transcript-extractor
+```
 
-## Quick Start
-
-Clone this repo, then set your API key:
+Set your API key:
 
 ```bash
 export GOOGLE_API_KEY="your_google_api_key"
 ```
 
-Install optional Python dependency:
+Install the optional Python dependency:
 
 ```bash
 python3 -m pip install -r requirements.txt
 ```
 
-Run:
+## Usage
 
 ```bash
-python3 scripts/extract_video_transcript.py "https://www.youtube.com/watch?v=..." \
+python3 scripts/extract_video_transcript.py "VIDEO_URL" \
   --out-dir ./transcripts
 ```
 
-For a Bilibili, Douyin, Xiaohongshu, TikTok, or other supported URL, pass the
-URL the same way. Platform support depends on `yt-dlp`, and some URLs may require
-a local `cookies.txt` file:
+If a platform requires login state, pass a local cookie file explicitly:
 
 ```bash
 python3 scripts/extract_video_transcript.py "VIDEO_URL" \
@@ -102,24 +89,14 @@ python3 scripts/extract_video_transcript.py "VIDEO_URL" \
   --out-dir ./transcripts
 ```
 
-Never commit `cookies.txt`, `.env`, API keys, or generated transcripts that may
-contain private material.
+Local media files also work:
 
-## Using With AI Agents
+```bash
+python3 scripts/extract_video_transcript.py ./example.mp4 \
+  --out-dir ./transcripts
+```
 
-The easiest AI-agent-era workflow is:
-
-1. Give this repository URL to Codex CLI, Claude Code, or your preferred agent.
-2. Ask it to install/configure the tool locally.
-3. Provide your own `GOOGLE_API_KEY`.
-4. Send video links to the agent and ask it to run the transcript extractor.
-
-This repo includes a `SKILL.md` so agent runtimes that understand Skills can
-reuse the workflow directly.
-
-## Outputs
-
-For each input, the script writes:
+Each run writes:
 
 - `*-AI高质量校对稿.md`
 - `*-transcript.txt`
@@ -127,30 +104,25 @@ For each input, the script writes:
 - `*-metadata.json`
 - intermediate audio files under the output `_work/` directory
 
-The metadata JSON includes duration, models, token usage, estimated USD/CNY cost,
-and elapsed time.
+Do not commit `cookies.txt`, `.env`, API keys, or generated transcripts that may contain private material.
 
-## Privacy And Safety
+## Using With AI Agents
 
-- API keys are read from `GOOGLE_API_KEY` or `~/.agents/secrets/.env`.
-- API keys are never printed intentionally.
-- Cookies are used only when explicitly passed with `--cookies`.
-- Do not use this tool for content you are not allowed to access or process.
-- Transcripts may be derivative text from copyrighted videos. Treat them as
-  personal research or accessibility artifacts unless you have the right to
-  redistribute them.
+The easiest workflow is to give this repository URL to Codex CLI, Claude Code, Cursor Agent, or another AI agent and say:
+
+> Please configure this video-to-transcript tool locally. I will provide my own `GOOGLE_API_KEY`.
+
+This repo includes a `SKILL.md`, so agent runtimes that understand Skills can reuse the workflow directly.
 
 ## Credits
 
-This project stands on other people's work:
+This project is built on other people's work:
 
-- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) is the foundation for video site
-  extraction.
+- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) is the foundation for video site extraction.
 - [`ffmpeg`](https://ffmpeg.org/) handles audio conversion.
 - Google Gemini provides the transcription and cleanup models.
 
-Thank you to those maintainers and teams. This repository is just a small,
-opinionated wrapper around their much more substantial work.
+Thanks to those maintainers and teams. This repository is only a small wrapper that connects their work into a workflow for Chinese videos and AI agents.
 
 ## License
 
