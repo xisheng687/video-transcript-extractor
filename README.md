@@ -1,98 +1,85 @@
 # video-transcript-extractor
 
-A small, local-first bridge that turns video links into clean transcripts.
+中文 | [English](./README.en.md)
 
-This project is intentionally modest. There is very little original technical
-novelty here: it mainly connects existing tools into one repeatable workflow. It
-is not a new downloader, a new speech model, or a clever bypass. The core work
-is done by excellent existing tools:
+一个很小的、本地优先的视频链接转文字稿工具。
 
-- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) for extracting metadata, subtitles,
-  and audio from video platforms.
-- [`ffmpeg`](https://ffmpeg.org/) for reliable audio conversion.
-- Google Gemini API for audio transcription and light transcript cleanup.
+先说清楚：这个项目没有多少原创技术含量。它本质上只是把几个优秀的现有工具串成一个可重复使用的流程。它不是新的下载器，不是新的语音模型，也不是绕过平台限制的工具。真正的基础工作来自：
 
-What this repo adds is a practical workflow around those pieces: video URL in,
-clean Markdown transcript out, with a cost estimate and a Codex/agent-friendly
-Skill wrapper.
+- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp)：负责视频平台的元数据、字幕和音频提取。
+- [`ffmpeg`](https://ffmpeg.org/)：负责可靠的音频转换。
+- Google Gemini API：负责音频转写和轻量文本校对。
 
-## What It Does
+这个仓库做的事情很朴素：给一个视频链接，得到一份更干净的 Markdown 文字稿，同时给出大致成本估算，并提供一个适合 Codex / Claude Code / AI Agent 使用的 Skill 包装。
 
-- Accepts a video URL or local media/audio file.
-- Uses `yt-dlp` to extract audio.
-- Converts audio to 64 kbps mono MP3 with `ffmpeg`.
-- Transcribes audio with `gemini-2.5-flash`.
-- Lightly corrects obvious ASR errors with `gemini-2.5-flash-lite`.
-- Outputs Markdown, TXT, raw transcript, and JSON metadata with token usage and
-  estimated cost.
+## 它能做什么
 
-It is designed for personal research, accessibility, knowledge management, and
-creator workflows. It is not intended for bypassing paywalls, DRM, private
-content, or platform restrictions.
+- 接受视频 URL 或本地媒体/音频文件。
+- 用 `yt-dlp` 提取音频。
+- 用 `ffmpeg` 转成 64 kbps 单声道 MP3。
+- 用 `gemini-2.5-flash` 做音频转写。
+- 用 `gemini-2.5-flash-lite` 做明显错字和术语的轻量校对。
+- 输出 Markdown、TXT、原始转写稿、JSON 元数据。
+- JSON 元数据里会包含 token 用量和估算成本。
 
-## Why This Exists
+它适合个人研究、无障碍阅读、知识管理、内容创作者整理素材。不适合用来绕过付费墙、DRM、私密内容或平台访问限制。
 
-Many tools can download media. Many models can transcribe audio. The annoying
-part is wiring them together in a repeatable, Chinese-friendly workflow that:
+## 为什么做这个
 
-- Works across common platforms handled by `yt-dlp`, such as YouTube, Bilibili,
-  Douyin, Xiaohongshu, TikTok, and many more.
-- Handles videos without official subtitles by falling back to audio ASR.
-- Gives a readable transcript instead of a raw line-by-line dump.
-- Keeps API keys and cookies local.
-- Shows approximate cost.
+能下载媒体的工具很多，能语音转文字的模型也很多。麻烦的是把它们稳定地串起来，尤其是中文视频经常会遇到：
 
-## API Recommendation
+- B站、抖音、小红书、YouTube 等平台体验不统一。
+- 有些视频有字幕，有些没有，只能抽音频做 ASR。
+- 原始 ASR 文本可读性差，需要标点、分段、术语校对。
+- API key 和 cookie 不能乱传、不能泄漏。
+- 调用云端模型最好能知道大概花了多少钱。
 
-In our own test on a 13:52 Chinese tech video, the best cost-quality default was:
+这个项目就是把这些步骤收拢成一个本地脚本和一个 Agent Skill。
 
-- Transcription: `gemini-2.5-flash`
-- Cleanup: `gemini-2.5-flash-lite`
+## API 推荐
 
-Observed cost for the full workflow was about `$0.038`, roughly `¥0.27` at
-`7.2 CNY/USD`. Your cost will vary with duration, audio density, model pricing,
-and exchange rate.
+我们自己测试过一条 13 分 52 秒的中文科技视频，当前性价比较好的默认组合是：
 
-You can swap models or providers in the script. OpenAI transcription models may
-also work well, but in our test environment Gemini direct API was cheaper and
-more reliable than routing audio through OpenRouter.
+- 音频转写：`gemini-2.5-flash`
+- 文本校对：`gemini-2.5-flash-lite`
 
-## Requirements
+这条视频完整流程实测成本约 `$0.038`，按 `7.2 CNY/USD` 约 `¥0.27`。实际成本会随视频时长、语速、音频密度、模型价格和汇率变化。
+
+脚本里可以替换模型或服务商。OpenAI 的转写模型也可能很好，但在我们的测试环境里，Google Gemini 直连比通过 OpenRouter 路由音频更便宜、更稳定。
+
+## 依赖
 
 - Python 3.9+
 - [`ffmpeg`](https://ffmpeg.org/)
-- `yt-dlp`, or [`uv`](https://github.com/astral-sh/uv) so the script can run
-  `uvx yt-dlp`
-- A Google Gemini API key
+- `yt-dlp`，或者安装 [`uv`](https://github.com/astral-sh/uv)，让脚本通过 `uvx yt-dlp` 自动调用
+- 一个 Google Gemini API key
 
-Optional:
+可选：
 
-- `opencc-python-reimplemented` for traditional-to-simplified Chinese cleanup.
+- `opencc-python-reimplemented`：用于繁体转简体兜底处理。
 
-## Quick Start
+## 快速开始
 
-Clone this repo, then set your API key:
+克隆仓库后，设置你的 API key：
 
 ```bash
 export GOOGLE_API_KEY="your_google_api_key"
 ```
 
-Install optional Python dependency:
+安装可选 Python 依赖：
 
 ```bash
 python3 -m pip install -r requirements.txt
 ```
 
-Run:
+运行：
 
 ```bash
 python3 scripts/extract_video_transcript.py "https://www.youtube.com/watch?v=..." \
   --out-dir ./transcripts
 ```
 
-For a Bilibili, Douyin, Xiaohongshu, TikTok, or other supported URL, pass the
-URL the same way. Platform support depends on `yt-dlp`, and some URLs may require
-a local `cookies.txt` file:
+B站、抖音、小红书、TikTok 或其他 `yt-dlp` 支持的平台也一样传 URL。平台支持取决于 `yt-dlp`，部分登录/地区/风控内容可能需要你自己导出的本地 `cookies.txt`：
 
 ```bash
 python3 scripts/extract_video_transcript.py "VIDEO_URL" \
@@ -100,55 +87,45 @@ python3 scripts/extract_video_transcript.py "VIDEO_URL" \
   --out-dir ./transcripts
 ```
 
-Never commit `cookies.txt`, `.env`, API keys, or generated transcripts that may
-contain private material.
+不要提交 `cookies.txt`、`.env`、API key，或包含隐私内容的生成稿。
 
-## Using With AI Agents
+## 给 AI Agent 使用
 
-The easiest AI-agent-era workflow is:
+现在更简单的方式是直接把这个仓库链接发给 Codex CLI、Claude Code、Cursor Agent、龙虾之类的 AI Agent，然后说：
 
-1. Give this repository URL to Codex CLI, Claude Code, or your preferred agent.
-2. Ask it to install/configure the tool locally.
-3. Provide your own `GOOGLE_API_KEY`.
-4. Send video links to the agent and ask it to run the transcript extractor.
+> 帮我把这个视频转文字稿工具配置好，我会自己提供 `GOOGLE_API_KEY`。
 
-This repo includes a `SKILL.md` so agent runtimes that understand Skills can
-reuse the workflow directly.
+这个仓库包含 `SKILL.md`，支持 Skill 的 Agent 可以直接读取并复用这个流程。API key 仍然需要你自己申请并填入本地环境变量。
 
-## Outputs
+## 输出文件
 
-For each input, the script writes:
+每次运行会输出：
 
 - `*-AI高质量校对稿.md`
 - `*-transcript.txt`
 - `*-raw-transcript.txt`
 - `*-metadata.json`
-- intermediate audio files under the output `_work/` directory
+- 中间音频文件，位于输出目录的 `_work/` 下
 
-The metadata JSON includes duration, models, token usage, estimated USD/CNY cost,
-and elapsed time.
+`metadata.json` 会记录视频时长、使用模型、token 用量、估算美元/人民币成本、耗时等信息。
 
-## Privacy And Safety
+## 隐私与安全
 
-- API keys are read from `GOOGLE_API_KEY` or `~/.agents/secrets/.env`.
-- API keys are never printed intentionally.
-- Cookies are used only when explicitly passed with `--cookies`.
-- Do not use this tool for content you are not allowed to access or process.
-- Transcripts may be derivative text from copyrighted videos. Treat them as
-  personal research or accessibility artifacts unless you have the right to
-  redistribute them.
+- API key 从 `GOOGLE_API_KEY` 或 `~/.agents/secrets/.env` 读取。
+- 脚本不会主动打印 API key。
+- cookie 只有在你显式传入 `--cookies` 时才会使用。
+- 不要处理你无权访问或无权转写的内容。
+- 视频文字稿可能属于原视频的衍生文本。除非你有权利再分发，否则请把它当作个人研究、无障碍阅读或知识管理材料。
 
-## Credits
+## 致谢
 
-This project stands on other people's work:
+这个项目站在前人的基础上：
 
-- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) is the foundation for video site
-  extraction.
-- [`ffmpeg`](https://ffmpeg.org/) handles audio conversion.
-- Google Gemini provides the transcription and cleanup models.
+- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) 是多平台视频提取的基础。
+- [`ffmpeg`](https://ffmpeg.org/) 负责音频转换。
+- Google Gemini 提供转写和校对模型。
 
-Thank you to those maintainers and teams. This repository is just a small,
-opinionated wrapper around their much more substantial work.
+感谢这些项目和团队。这个仓库只是一个很小、很本分的包装，把他们的工作串成一个适合中文视频和 AI Agent 使用的流程。
 
 ## License
 
