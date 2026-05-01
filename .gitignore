@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+cookies.txt
+*.cookies.txt
+transcripts/
+_work/
+*.mp3
+*.wav
+*.m4a
+*.mp4
+*.m4s
+*.webm
+*.jsonl
+__pycache__/
+.DS_Store

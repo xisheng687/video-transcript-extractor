@@ -1,0 +1,4 @@
+interface:
+  display_name: "Video Transcript Extractor"
+  short_description: "Extract polished transcripts from video links"
+  default_prompt: "Use $video-transcript-extractor to extract a clean transcript from this video link."
