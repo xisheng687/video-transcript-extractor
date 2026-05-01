@@ -5,6 +5,10 @@ cookies.txt
 *.cookies.txt
 transcripts/
 _work/
+*-AI高质量校对稿.md
+*-transcript.txt
+*-raw-transcript.txt
+*-metadata.json
 *.mp3
 *.wav
 *.m4a

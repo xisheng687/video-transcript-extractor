@@ -2,7 +2,7 @@
 
 中文 | [English](./README.en.md)
 
-一个本地优先的在线视频/社媒内容转文字稿工具。输入一个视频链接或本地媒体文件，它会提取音频、调用 AI 语音转文字，再生成更适合阅读和整理的 Markdown / TXT 文字稿。
+一个本地编排优先的在线视频/社媒内容转文字稿工具。输入一个视频链接或本地媒体文件，它会在本机提取和转码音频，然后调用 Google Gemini 做语音转文字和轻量校对，生成更适合阅读和整理的 Markdown / TXT 文字稿。
 
 它的底层平台解析能力来自 [`yt-dlp`](https://github.com/yt-dlp/yt-dlp)。当前 `yt-dlp` 本地版本包含 1800+ 个 extractor；只要 `yt-dlp` 对某个平台支持得更好，这个工具的可用范围也会跟着变强。
 
@@ -109,6 +109,17 @@
 
 一条 13 分 52 秒的中文视频，完整流程实测成本约 `$0.038`，按 `7.2 CNY/USD` 约 `¥0.27`。实际成本会随视频时长、语速、音频密度、模型价格和汇率变化。
 
+## 隐私与费用
+
+- 本工具不会打印 API key，也不会自动读取全局密钥文件。
+- 音频片段会发送到 Google Gemini API 做转写；原始转写文本会再次发送到 Gemini 做轻量校对。
+- 如果传入 `--cookies`，cookie 文件只会交给本机 `yt-dlp` 使用，不会写入输出文件。
+- 输出文件默认只保存清洗后的来源：URL 会移除 query string 和 fragment，本地文件只保存文件名。确实需要完整来源时，可以显式传入 `--include-source`。
+- 生成稿、原始转写稿和 metadata 可能包含私密内容，请不要提交到公开仓库。
+- 成本由你的 Google API key 承担，实际费用取决于视频时长、语速、音频密度和模型价格。
+
+## 已知限制 / Roadmap
+
 目前它还有很多不足，比如没有完整的 GUI，没有内置批量任务管理，字幕时间轴能力也还比较基础。后续可以继续改进 SRT/VTT 输出、字幕优先策略、批量处理、缓存、失败重试和更多模型后端。
 
 ## 安装
@@ -117,7 +128,6 @@
 
 - Python 3.9+
 - [`ffmpeg`](https://ffmpeg.org/)
-- `yt-dlp`，或者安装 [`uv`](https://github.com/astral-sh/uv)，让脚本通过 `uvx yt-dlp` 自动调用
 - 一个 Google Gemini API key
 
 克隆仓库：
@@ -130,10 +140,10 @@ cd video-transcript-extractor
 设置 API key：
 
 ```bash
-export GOOGLE_API_KEY="your_google_api_key"
+export GOOGLE_API_KEY="your_google_api_key"  # pragma: allowlist secret
 ```
 
-安装可选 Python 依赖：
+安装 Python 依赖：
 
 ```bash
 python3 -m pip install -r requirements.txt
@@ -161,6 +171,14 @@ python3 scripts/extract_video_transcript.py ./example.mp4 \
   --out-dir ./transcripts
 ```
 
+如果你不想把 key 放进 shell 环境，也可以显式传入本地 `.env` 文件：
+
+```bash
+python3 scripts/extract_video_transcript.py "VIDEO_URL" \
+  --env-file ./.env \
+  --out-dir ./transcripts
+```
+
 每次运行会输出：
 
 - `*-AI高质量校对稿.md`
@@ -169,11 +187,11 @@ python3 scripts/extract_video_transcript.py ./example.mp4 \
 - `*-metadata.json`
 - 中间音频文件，位于输出目录的 `_work/` 下
 
-不要提交 `cookies.txt`、`.env`、API key，或包含隐私内容的生成稿。
+不要提交 `cookies.txt`、`.env`、API key，或包含隐私内容的生成稿。`.gitignore` 已覆盖默认输出目录和常见生成文件名，但如果你自定义输出位置，仍然需要自己确认。
 
 ## 给 AI Agent 使用
 
-更简单的方式是直接把这个仓库链接发给 Codex CLI、Claude Code、Cursor Agent、龙虾之类的 AI Agent，然后说：
+更简单的方式是直接把这个仓库链接发给 Codex CLI、Claude Code、Cursor Agent 或其他 AI Agent，然后说：
 
 > 帮我把这个视频转文字稿工具配置好，我会自己提供 `GOOGLE_API_KEY`。
 

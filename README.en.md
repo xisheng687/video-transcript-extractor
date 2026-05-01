@@ -2,7 +2,7 @@
 
 [中文](./README.md) | English
 
-A local-first tool for turning online video and social media content into readable transcripts. Give it a video URL or a local media file, and it will extract audio, transcribe it with AI, and write Markdown / TXT transcript files.
+A local-orchestration-first tool for turning online video and social media content into readable transcripts. Give it a video URL or a local media file, and it will extract and convert audio locally, then call Google Gemini for transcription and light cleanup before writing Markdown / TXT transcript files.
 
 The platform extraction layer is powered by [`yt-dlp`](https://github.com/yt-dlp/yt-dlp). The current local `yt-dlp` build includes 1800+ extractors; whenever `yt-dlp` gets stronger for a platform, this tool benefits from that improvement.
 
@@ -109,6 +109,17 @@ In our own tests on Chinese tech videos, this default model combination had a go
 
 For one 13:52 Chinese video, the full workflow cost about `$0.038`, roughly `¥0.27` at `7.2 CNY/USD`. Actual cost varies with duration, speech density, model pricing, and exchange rate.
 
+## Privacy And Cost
+
+- This tool does not print API keys and does not read global secret files automatically.
+- Audio chunks are sent to the Google Gemini API for transcription. Raw transcript text is sent to Gemini again for light cleanup.
+- If you pass `--cookies`, the cookie file is only passed to local `yt-dlp` and is not written to output files.
+- Output files store a sanitized source by default: URL query strings and fragments are removed, and local files are represented by filename only. Pass `--include-source` only if you explicitly want exact source URLs or paths in outputs.
+- Generated transcripts, raw transcripts, and metadata may contain private material. Do not commit them to public repositories.
+- API usage is billed to your Google API key. Actual cost depends on duration, speech density, audio content, and model pricing.
+
+## Known Limitations / Roadmap
+
 There are still many limitations. There is no GUI, no built-in batch job manager, and timestamped subtitle output is still basic. Future improvements may include better SRT/VTT output, subtitle-first handling, batch processing, caching, retries, and more model backends.
 
 ## Installation
@@ -117,7 +128,6 @@ Requirements:
 
 - Python 3.9+
 - [`ffmpeg`](https://ffmpeg.org/)
-- `yt-dlp`, or [`uv`](https://github.com/astral-sh/uv) so the script can run `uvx yt-dlp`
 - A Google Gemini API key
 
 Clone the repo:
@@ -130,10 +140,10 @@ cd video-transcript-extractor
 Set your API key:
 
 ```bash
-export GOOGLE_API_KEY="your_google_api_key"
+export GOOGLE_API_KEY="your_google_api_key"  # pragma: allowlist secret
 ```
 
-Install the optional Python dependency:
+Install Python dependencies:
 
 ```bash
 python3 -m pip install -r requirements.txt
@@ -161,6 +171,14 @@ python3 scripts/extract_video_transcript.py ./example.mp4 \
   --out-dir ./transcripts
 ```
 
+If you do not want to put the key in your shell environment, pass a local `.env` file explicitly:
+
+```bash
+python3 scripts/extract_video_transcript.py "VIDEO_URL" \
+  --env-file ./.env \
+  --out-dir ./transcripts
+```
+
 Each run writes:
 
 - `*-AI高质量校对稿.md`
@@ -169,7 +187,7 @@ Each run writes:
 - `*-metadata.json`
 - intermediate audio files under the output `_work/` directory
 
-Do not commit `cookies.txt`, `.env`, API keys, or generated transcripts that may contain private material.
+Do not commit `cookies.txt`, `.env`, API keys, or generated transcripts that may contain private material. `.gitignore` covers the default output directory and common generated filenames, but check custom output locations yourself.
 
 ## Using With AI Agents
 

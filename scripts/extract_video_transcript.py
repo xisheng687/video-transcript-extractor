@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Extract and polish transcripts from video URLs or local media files.
 
-This script is intentionally local-first:
+This script is intentionally local-first in orchestration:
 - no API keys are logged
 - cookies are used only when explicitly supplied
+- audio and transcript text are sent to the configured Gemini API
 - provider usage and estimated costs are written to metadata JSON
 """
 
@@ -22,6 +23,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -79,9 +81,12 @@ def run(cmd: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProce
     )
 
 
-def load_env_value(name: str, env_file: Path = Path("~/.agents/secrets/.env").expanduser()) -> str:
+def load_env_value(name: str, env_file: Path | None = None) -> str:
     if os.environ.get(name):
         return os.environ[name]
+    if env_file is None:
+        return ""
+    env_file = env_file.expanduser()
     if not env_file.exists():
         return ""
     for raw_line in env_file.read_text(encoding="utf-8", errors="ignore").splitlines():
@@ -108,9 +113,21 @@ def slugify(value: str, fallback: str = "video") -> str:
 def ytdlp_cmd() -> list[str]:
     if shutil.which("yt-dlp"):
         return ["yt-dlp"]
-    if shutil.which("uvx"):
-        return ["uvx", "yt-dlp"]
-    raise SystemExit("yt-dlp is not installed and uvx is unavailable.")
+    try:
+        import yt_dlp  # noqa: F401
+    except Exception:
+        raise SystemExit("yt-dlp is not installed. Install it with `python3 -m pip install -r requirements.txt`.")
+    return [sys.executable, "-m", "yt_dlp"]
+
+
+def public_source_label(source: str) -> str:
+    source_path = Path(source).expanduser()
+    if source_path.exists():
+        return source_path.name
+    parts = urllib.parse.urlsplit(source)
+    if parts.scheme in {"http", "https"} and parts.netloc:
+        return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+    return slugify(source)
 
 
 def get_media_title(source: str) -> str:
@@ -153,10 +170,6 @@ def download_audio(source: str, work_dir: Path, base_name: str, cookies: str | N
 
 
 def convert_to_mp3(input_path: Path, output_path: Path) -> Path:
-    if input_path.suffix.lower() == ".mp3":
-        if input_path.resolve() != output_path.resolve():
-            shutil.copyfile(input_path, output_path)
-        return output_path
     run(
         [
             "ffmpeg",
@@ -235,12 +248,23 @@ def gemini_generate(api_key: str, model: str, payload: dict, timeout: int = 300)
         raise RuntimeError(f"Gemini API error {exc.code}: {body[:1000]}") from exc
 
 
-def response_text(data: dict) -> str:
-    return "".join(
+def response_text(data: dict, *, context: str) -> str:
+    candidates = data.get("candidates") or []
+    if not candidates:
+        feedback = data.get("promptFeedback", {})
+        raise RuntimeError(f"{context} returned no candidates. Prompt feedback: {feedback}")
+    for candidate in candidates:
+        finish_reason = candidate.get("finishReason")
+        if finish_reason and finish_reason != "STOP":
+            raise RuntimeError(f"{context} stopped with finishReason={finish_reason}. Response may be incomplete.")
+    text = "".join(
         part.get("text", "")
-        for candidate in data.get("candidates", [])
+        for candidate in candidates
         for part in candidate.get("content", {}).get("parts", [])
     ).strip()
+    if not text:
+        raise RuntimeError(f"{context} returned an empty text response.")
+    return text
 
 
 def usage_cost_transcribe(usage: dict) -> float:
@@ -297,7 +321,7 @@ def transcribe_chunk(api_key: str, chunk: Path, model: str, terms: str, index: i
         },
     }
     data = gemini_generate(api_key, model, payload)
-    return simplify_chinese(response_text(data)), data
+    return simplify_chinese(response_text(data, context=f"{model} transcription")), data
 
 
 def polish_text(api_key: str, text: str, model: str, terms: str) -> tuple[str, list[dict]]:
@@ -335,14 +359,14 @@ def polish_text(api_key: str, text: str, model: str, terms: str) -> tuple[str, l
         }
         data = gemini_generate(api_key, model, payload)
         raw.append(data)
-        outputs.append(simplify_chinese(response_text(data)))
+        outputs.append(simplify_chinese(response_text(data, context=f"{model} polish")))
     return "\n\n".join(outputs).strip(), raw
 
 
 def write_outputs(
     out_dir: Path,
     title: str,
-    source: str,
+    source_label: str,
     transcript: str,
     raw_transcript: str,
     metadata: dict,
@@ -351,7 +375,7 @@ def write_outputs(
     safe = slugify(title)
     md = (
         f"# {title}\n\n"
-        f"- 来源：{source}\n"
+        f"- 来源：{source_label}\n"
         f"- 提取方式：Gemini 2.5 Flash 音频转写 + Gemini 2.5 Flash Lite 文本校对\n"
         f"- 说明：AI 自动转写与轻量校对，未做逐字人工校对。\n\n"
         "## 文字稿\n\n"
@@ -373,6 +397,12 @@ def main() -> None:
     parser.add_argument("--out-dir", default="./transcripts", help="Output directory")
     parser.add_argument("--title", help="Override output title")
     parser.add_argument("--cookies", help="Optional local cookies.txt for yt-dlp")
+    parser.add_argument("--env-file", type=Path, help="Optional .env file that contains GOOGLE_API_KEY")
+    parser.add_argument(
+        "--include-source",
+        action="store_true",
+        help="Store the exact source URL/path in outputs. By default query strings, fragments, and local paths are redacted.",
+    )
     parser.add_argument("--chunk-seconds", type=int, default=600, help="Audio chunk size for Gemini")
     parser.add_argument("--terms", default=DEFAULT_TERMS, help="Comma-separated/domain terms to bias transcription")
     parser.add_argument("--transcribe-model", default="gemini-2.5-flash")
@@ -383,9 +413,9 @@ def main() -> None:
     if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
         raise SystemExit("ffmpeg and ffprobe are required.")
 
-    api_key = load_env_value("GOOGLE_API_KEY")
+    api_key = load_env_value("GOOGLE_API_KEY", args.env_file)
     if not api_key:
-        raise SystemExit("GOOGLE_API_KEY is missing. Set it in the environment or ~/.agents/secrets/.env.")
+        raise SystemExit("GOOGLE_API_KEY is missing. Set it in the environment or pass --env-file.")
 
     out_dir = Path(args.out_dir).expanduser().resolve()
     work_dir = out_dir / "_work"
@@ -412,11 +442,13 @@ def main() -> None:
     polished, polish_responses = polish_text(api_key, raw_transcript, args.polish_model, args.terms)
     polish_cost = sum(usage_cost_polish(item.get("usageMetadata", {})) for item in polish_responses)
 
+    source_label = args.source if args.include_source else public_source_label(args.source)
     metadata = {
-        "source": args.source,
+        "source": source_label,
+        "source_redacted": not args.include_source,
         "title": title,
         "duration_seconds": duration_seconds(mp3_path),
-        "chunks": [str(path) for path in chunks],
+        "chunks": [path.name for path in chunks],
         "models": {
             "transcribe": args.transcribe_model,
             "polish": args.polish_model,
@@ -433,7 +465,7 @@ def main() -> None:
         "estimated_cost_cny": round((transcribe_cost + polish_cost) * args.usd_to_cny, 4),
         "elapsed_seconds": round(time.time() - started, 2),
     }
-    write_outputs(out_dir, title, args.source, polished, raw_transcript, metadata)
+    write_outputs(out_dir, title, source_label, polished, raw_transcript, metadata)
 
     print(
         json.dumps(

@@ -12,8 +12,8 @@ Use `scripts/extract_video_transcript.py` for repeatable extraction. It:
 1. Uses `yt-dlp` to download audio from a URL, or accepts a local media/audio file.
 2. Converts audio to 64 kbps mono MP3 with `ffmpeg`.
 3. Splits long audio into chunks.
-4. Transcribes with Google Gemini 2.5 Flash, with `thinkingBudget=0`.
-5. Lightly corrects the transcript with Gemini 2.5 Flash Lite.
+4. Sends audio chunks to Google Gemini 2.5 Flash for transcription, with `thinkingBudget=0`.
+5. Sends raw transcript text to Gemini 2.5 Flash Lite for light cleanup.
 6. Writes Markdown, TXT, JSON metadata, intermediate audio, and cost estimates.
 
 Run from the repository root:
@@ -22,7 +22,8 @@ Run from the repository root:
 python3 scripts/extract_video_transcript.py "VIDEO_URL_OR_LOCAL_FILE" --out-dir ./transcripts
 ```
 
-The script reads `GOOGLE_API_KEY` from the environment, or from `~/.agents/secrets/.env`.
+The script reads `GOOGLE_API_KEY` from the environment. If the user wants to use
+a dotenv file, pass it explicitly with `--env-file`.
 Do not print API keys, cookies, or authorization headers.
 
 ## Model Choice
@@ -32,8 +33,8 @@ Default:
 - Transcription: `gemini-2.5-flash`
 - Text polish: `gemini-2.5-flash-lite`
 
-Use OpenRouter only as an optional fallback after checking that the selected
-model and provider route are available for the user's key.
+Do not change providers unless the user explicitly asks for it and has confirmed
+the provider can process audio for their account.
 
 ## Platform Notes
 
@@ -42,13 +43,14 @@ and many other sites. If a URL requires login, region access, or anti-bot checks
 ask the user for a local cookie file only when needed. Never upload or print
 cookies.
 
-If a platform provides official subtitles, prefer downloading subtitles first.
-If there are no usable subtitles, extract audio and run Gemini ASR.
+The current script uses audio extraction plus Gemini ASR. Do not promise
+subtitle-first behavior unless that path has been implemented.
 
 ## Output Guidance
 
 Return the final Markdown transcript path and a short cost summary. Mention that
 AI transcripts may still need human review for proper nouns and technical terms.
+Mention that audio and transcript text are sent to Google Gemini.
 
 If the user asks for a publish-ready transcript, run a second light proofreading
 pass, but do not rewrite arguments or add new content.
